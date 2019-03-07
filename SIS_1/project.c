@@ -30,19 +30,92 @@ u64 get_iowait_time(int cpu){
 	return iowait;
 }
 
+u64 get_user(int cpu){
+	u64 user = 0;
+	user = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
+	return user;
+}
+
+u64 get_nice(int cpu){
+	u64 nice = 0;
+	nice = kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
+	return nice;
+}
+
+u64 get_system(int cpu){
+	u64 system = 0;
+	system = kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
+	return system;
+}
+
+u64 get_irq(int cpu){
+	u64 irq = 0;
+	irq = kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
+	return irq;
+}
+
+u64 get_softirq(int cpu){
+	u64 softirq = 0;
+	softirq = kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
+	return softirq;
+}
+
+u64 get_steal(int cpu){
+	u64 steal = 0;
+	steal = kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
+	return steal;
+}
+
+u64 get_guest(int cpu){
+	u64 guest = 0;
+	guest = kcpustat_cpu(cpu).cpustat[CPUTIME_GUEST];
+	return guest;
+}
+
+u64 get_guest_nice(int cpu){
+	u64 guest_nice = 0;
+	guest_nice = kcpustat_cpu(cpu).cpustat[CPUTIME_GUEST_NICE];
+	return guest_nice;
+}
+
+u64 nsec_to_clock_t(u64 x){
+#if (NSEC_PER_SEC % USER_HZ) == 0
+	return div_u64(x, NSEC_PER_SEC / USER_HZ);
+#elif (USER_HZ % 512) == 0
+	return div_u64(x * USER_HZ / 512, NSEC_PER_SEC / 512);
+#else
+	return div_u64(x * 9, (9ull * NSEC_PER_SEC + (USER_HZ / 2)) / USER_HZ);
+#endif
+}
+
 
 void print_info(void) {
 	int i;
-	u64 idle = 0;
-	u64 iowait = 0;
+	u64 idle = 0, iowait = 0, user = 0, nice = 0, system = 0, irq = 0, softirq = 0, steal = 0, guest = 0, guest_nice = 0;
 	printk(KERN_INFO "Begin");
 	for_each_possible_cpu(i){
 		idle += get_idle_time(i);
 		iowait += get_iowait_time(i);
+		user += get_user(i);
+		nice += get_nice(i);
+		system += get_system(i);
+		irq += get_irq(i);
+		softirq += get_softirq(i);
+		steal += get_steal(i);
+		guest += get_guest(i);
+		guest_nice += get_guest_nice(i);
 	}
 
-	printk(KERN_INFO "%lld", idle);
-	printk(KERN_INFO "%lld", iowait);
+	printk(KERN_INFO "%lld", nsec_to_clock_t(idle));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(iowait));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(user));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(nice));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(system));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(irq));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(softirq));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(steal));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(guest));
+	printk(KERN_INFO "%lld", nsec_to_clock_t(guest_nice));
 	printk(KERN_INFO "END");
 }
 
