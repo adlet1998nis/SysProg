@@ -106,23 +106,41 @@ void print_info(void) {
 		guest_nice += get_guest_nice(i);
 	}
 
-	printk(KERN_INFO "%lld", nsec_to_clock_t(idle));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(iowait));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(user));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(nice));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(system));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(irq));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(softirq));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(steal));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(guest));
-	printk(KERN_INFO "%lld", nsec_to_clock_t(guest_nice));
+	user = nsec_to_clock_t(user);
+	nice = nsec_to_clock_t(nice);
+	system = nsec_to_clock_t(system);
+	idle = nsec_to_clock_t(idle);
+	iowait = nsec_to_clock_t(iowait);
+	irq = nsec_to_clock_t(irq);
+	softirq = nsec_to_clock_t(softirq);
+	steal = nsec_to_clock_t(steal);
+	guest = nsec_to_clock_t(guest);
+	guest_nice = nsec_to_clock_t(guest_nice);
+
+	u64 CPU_time_since_boot, CPU_idle_time_since_boot, CPU_usage_time_since_boot, CPU_percentage; 
+	CPU_time_since_boot = user + nice + system + idle + iowait + irq + softirq + steal;
+	CPU_idle_time_since_boot = idle + iowait;
+	CPU_usage_time_since_boot = CPU_time_since_boot - CPU_idle_time_since_boot;
+	CPU_percentage = ((CPU_usage_time_since_boot * 100) / CPU_time_since_boot);
+
+	printk(KERN_INFO "%lld", CPU_percentage);
+	/*printk(KERN_INFO "%lld", user);
+	printk(KERN_INFO "%lld", nice);
+	printk(KERN_INFO "%lld", system);
+	printk(KERN_INFO "%lld", idle);
+	printk(KERN_INFO "%lld", iowait);
+	printk(KERN_INFO "%lld", irq);
+	printk(KERN_INFO "%lld", softirq);
+	printk(KERN_INFO "%lld", steal);
+	printk(KERN_INFO "%lld", guest);
+	printk(KERN_INFO "%lld", guest_nice);*/
 	printk(KERN_INFO "END");
 }
 
 
 int init_module(void){
 	printk(KERN_INFO "SIS 1: start.\n");
-    print_info();
+	print_info();
 	return 0;
 }
 
