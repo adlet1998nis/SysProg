@@ -1,0 +1,1 @@
+cmd_/home/adlet/Desktop/SysProg/Labs/lab6/lab-6.ko := ld -r -m elf_x86_64 -z max-page-size=0x200000 -T ./scripts/module-common.lds --build-id  -o /home/adlet/Desktop/SysProg/Labs/lab6/lab-6.ko /home/adlet/Desktop/SysProg/Labs/lab6/lab-6.o /home/adlet/Desktop/SysProg/Labs/lab6/lab-6.mod.o ;  true
