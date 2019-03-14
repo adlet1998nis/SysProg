@@ -18,46 +18,13 @@
 #include <asm/types.h>
 
 #define PROCFS_MAX_SIZE	30
-#define PROCFS_NAME "sis1"
+#define PROCFS_NAME "adlet"
 
 u64 CPU_usage_percent[3];
 u64 total_CPU_usage_percent = 0;
 
 struct proc_dir_entry *Our_Proc_File;
 char proc_buf[PROCFS_MAX_SIZE];
-
-/*static ssize_t procfile_write(struct file *fp, const char *buf, size_t len, loff_t *off){
-	if(len > PROCFS_MAX_SIZE){
-		return -EFAULT;
-	}
-
-	if(copy_from_user(proc_buf, buf, len)){
-		return -EFAULT;
-	}
-
-	total_CPU_usage_percent = simple_strtoul(proc_buf, NULL, 10);
-	CPU_usage_percent[0] = simple_strtoul(proc_buf, NULL, 10);
-	CPU_usage_percent[1] = simple_strtoul(proc_buf, NULL, 10);
-	CPU_usage_percent[2] = simple_strtoul(proc_buf, NULL, 10);
-	
-	return len;
-}*/
-
-static ssize_t procfile_read(struct file *fp, char *buf, size_t len, loff_t *off){
-	static int finished = 0;
-	if(finished){
-		finished = 0;
-		return 0;
-	}
-	finished = 1;
-	sprintf(buf, "cpu:%lld\ncpu0:%lld\ncpu1:%lld\ncpu2:%lld\n", total_CPU_usage_percent, CPU_usage_percent[0], CPU_usage_percent[1], CPU_usage_percent[2]);
-	return strlen(buf);
-}
-
-static struct file_operations proc_stat_operations = {
-	//.write		= procfile_write,
-	.read		= procfile_read,
-};
 
 u64 nsec_to_clock_t(u64 x){
 #if (NSEC_PER_SEC % USER_HZ) == 0
@@ -133,11 +100,7 @@ int calc_info(void){
 	total_guest_nice = nsec_to_clock_t(total_guest_nice);
 	total_CPU_usage_percent = calc_cpu_usage(total_user, total_nice, total_system, total_idle, total_iowait, total_irq, total_softirq, total_steal);
 	
-	/*printk(KERN_INFO "%lld", total_CPU_usage_percent);
-	printk(KERN_INFO "%lld", CPU_usage_percent[0]);	
-	printk(KERN_INFO "%lld", CPU_usage_percent[1]);
-	printk(KERN_INFO "%lld", CPU_usage_percent[2]);	
-	printk(KERN_INFO "%lld", total_user);
+	/*printk(KERN_INFO "%lld", total_user);
 	printk(KERN_INFO "%lld", total_nice);
 	printk(KERN_INFO "%lld", total_system);
 	printk(KERN_INFO "%lld", total_idle);
@@ -151,8 +114,23 @@ int calc_info(void){
 	return 0;
 }
 
-static int start_module(void){
+static ssize_t procfile_read(struct file *fp, char *buf, size_t len, loff_t *off){
+	static int finished = 0;
+	if(finished){
+		finished = 0;
+		return 0;
+	}
+	finished = 1;
 	calc_info();
+	sprintf(buf, "cpu:%lld\ncpu0:%lld\ncpu1:%lld\ncpu2:%lld\n", total_CPU_usage_percent, CPU_usage_percent[0], CPU_usage_percent[1], CPU_usage_percent[2]);
+	return strlen(buf);
+}
+
+static struct file_operations proc_stat_operations = {
+	.read = procfile_read,
+};
+
+static int start_module(void){
 	Our_Proc_File = proc_create(PROCFS_NAME, 0644, NULL, &proc_stat_operations);
 	return 0;
 }
