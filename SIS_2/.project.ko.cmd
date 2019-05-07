@@ -1,0 +1,1 @@
+cmd_/home/adlet/Desktop/SysProg/SIS_2/project.ko := ld -r -m elf_x86_64 -z max-page-size=0x200000 -T ./scripts/module-common.lds --build-id  -o /home/adlet/Desktop/SysProg/SIS_2/project.ko /home/adlet/Desktop/SysProg/SIS_2/project.o /home/adlet/Desktop/SysProg/SIS_2/project.mod.o ;  true
