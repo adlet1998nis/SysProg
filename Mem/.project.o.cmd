@@ -1052,6 +1052,7 @@ deps_/home/adlet/Desktop/SysProg/Mem/project.o := \
   include/uapi/asm-generic/mman.h \
   include/uapi/asm-generic/mman-common.h \
     $(wildcard include/config/mmap/allow/uninitialized.h) \
+  include/linux/swap_slots.h \
 
 /home/adlet/Desktop/SysProg/Mem/project.o: $(deps_/home/adlet/Desktop/SysProg/Mem/project.o)
 

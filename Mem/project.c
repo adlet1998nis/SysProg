@@ -22,15 +22,36 @@
 #include <linux/hugetlb.h>
 #include <linux/mman.h>
 #include <linux/mmzone.h>
-
+#include <linux/swap_slots.h>
+#include <asm/page.h>
+#include <asm/pgtable.h>
 
 #define PROCFS_MAX_SIZE	100
 #define PROCFS_NAME "helper"
 
 struct proc_dir_entry *Our_Proc_File;
 char proc_buf[PROCFS_MAX_SIZE];
+unsigned long pages[NR_LRU_LISTS];
 
-u64 cached, memTotal, memFree, memAvailable, buffers;    
+u64 cached, memTotal, memFree, buffers, active, inactive;
+char mem_ans[100100];
+
+void toString(char c[], int num){
+    u64 i, ost, size = 0;
+ 	u64 val = num;
+    while (val > 0){
+        size++;
+        val /= 10;
+    }
+    for (i = 0; i < len; i++)
+    {
+        rem = num % 10;
+        num = num / 10;
+        str[len - (i + 1)] = rem + '0';
+    }
+    str[len] = '\0';
+}
+
 int isNegative(u64 val){
 	if(val > 0){
 		return 0;
@@ -43,21 +64,37 @@ u64 convertToKB(u64 val){
 	return ans;
 }
 
+void calc_pages(void){
+	int j;
+	for(j = LRU_BASE; j < NR_LRU_LISTS; j++){
+		pages[j] = global_node_page_state(j + NR_LRU_BASE);
+	}
+}
+
 int calc_mem(void){
 	printk(KERN_INFO "BEGIN");
 	struct sysinfo i;
-	/*cached = global_node_page_state(NR_FILE_PAGES) - total_swapcache_pages() - (i -> bufferram);
-	if(isNegative(cached)){
-		cached = 0;
-	}*/
+	calc_pages();
 	si_meminfo(&i);
 	memTotal = i.totalram;
 	memTotal = convertToKB(memTotal);
+	toString(mem_ans, memTotal);
 	memFree = i.freeram;
 	memFree = convertToKB(memFree);
-	//memAvailable = si_mem_available();
+
+	cached = global_node_page_state(NR_FILE_PAGES) - i.bufferram;
+	cached = convertToKB(cached);
+	if(isNegative(cached)){
+		cached = 0;
+	}
+
 	buffers = i.bufferram; 
 	buffers = convertToKB(buffers);
+
+	active = pages[LRU_ACTIVE_ANON] + pages[LRU_ACTIVE_FILE];
+	active = convertToKB(active);
+	inactive = pages[LRU_INACTIVE_ANON] + pages[LRU_INACTIVE_FILE];
+	inactive = convertToKB(inactive);
 
 	printk(KERN_INFO "END");
 	return 0;
@@ -71,8 +108,8 @@ static ssize_t procfile_read(struct file *fp, char *buf, size_t len, loff_t *off
 	}
 	finished = 1;
 	calc_mem();
-	//sprintf(buf, "MemTotal: %lld\n", memTotal);
-	sprintf(buf, "MemTotal: %lld\nMemFree: %lld\nBuffers: %lld\n", memTotal, memFree, buffers);
+	sprintf(buf, mem_ans);
+	//sprintf(buf, "MemTotal: %lld\nMemFree: %lld\nBuffers: %lld\n", memTotal, memFree, buffers);
 	return strlen(buf);
 }
 
