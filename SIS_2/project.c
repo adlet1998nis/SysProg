@@ -16,12 +16,42 @@
 #include <linux/tick.h>
 #include <linux/uaccess.h>
 #include <asm/types.h>
+#include <linux/vmstat.h>
+#include <linux/swap.h>
+#include <linux/mm.h>
+#include <linux/hugetlb.h>
+#include <linux/mman.h>
+#include <linux/mmzone.h>
+#include <linux/swap_slots.h>
+#include <asm/page.h>
+#include <asm/pgtable.h>
 
 #define PROCFS_MAX_SIZE	100
 #define PROCFS_NAME "helper"
 
 struct proc_dir_entry *Our_Proc_File;
 char proc_buf[PROCFS_MAX_SIZE];
+unsigned long pages[NR_LRU_LISTS];
+
+u64 cached, memTotal, memFree, buffers, active, inactive;
+char cur[100];
+char cur1[100];
+char cur2[100];
+char cur3[100];
+char cur4[100];
+char cur5[100];
+char mem_ans[1001], cpu_ans[1001];
+
+char cur6[100];
+char cur7[100];
+char cur8[100];
+char cur9[100];
+char cur10[100];
+char cur11[100];
+char cur12[100];
+char cur13[100];
+char cur14[100];
+char cur15[100];
 
 u64 cur_idle[4], cur_iowait[4], cur_user[4], cur_nice[4], cur_system[4], cur_irq[4];
 u64 cur_softirq[4], cur_steal[4], cur_guest[4], cur_guest_nice[4];
@@ -29,7 +59,7 @@ u64 cur_softirq[4], cur_steal[4], cur_guest[4], cur_guest_nice[4];
 
 u64 total_idle = 0, total_iowait = 0, total_user = 0, total_nice = 0, total_system = 0, total_irq = 0;
 u64 total_softirq = 0, total_steal = 0, total_guest = 0, total_guest_nice = 0;
-		
+
 u64 nsec_to_clock_t(u64 x){
 #if (NSEC_PER_SEC % USER_HZ) == 0
 	return div_u64(x, NSEC_PER_SEC / USER_HZ);
@@ -38,6 +68,44 @@ u64 nsec_to_clock_t(u64 x){
 #else
 	return div_u64(x * 9, (9ull * NSEC_PER_SEC + (USER_HZ / 2)) / USER_HZ);
 #endif
+}
+
+void toString(char c[], int num){
+    u64 i, size = 0;
+ 	u64 val = num;
+    while (val > 0){
+        size++;
+        val /= 10;
+    }
+
+    if(size == 0){
+    	c[0] = '0';
+    	return ;
+    }
+    
+    for (i = 0; i < size; i++){
+        c[size - (i + 1)] = (num % 10) + '0';
+        num /= 10;
+    }
+}
+
+int isNegative(u64 val){
+	if(val > 0){
+		return 0;
+	}
+	return 1;
+}
+
+u64 convertToKB(u64 val){
+	u64 ans = val << (PAGE_SHIFT - 10);
+	return ans;
+}
+
+void calc_pages(void){
+	int j;
+	for(j = LRU_BASE; j < NR_LRU_LISTS; j++){
+		pages[j] = global_node_page_state(j + NR_LRU_BASE);
+	}
 }
 
 int calc_cpu(void){
@@ -92,6 +160,116 @@ int calc_cpu(void){
 	total_guest = nsec_to_clock_t(total_guest);
 	total_guest_nice = nsec_to_clock_t(total_guest_nice);
 	
+	toString(cur6, total_user);
+	toString(cur7, total_nice);
+	toString(cur8, total_system);
+	toString(cur9, total_idle);
+	toString(cur10, total_iowait);
+	toString(cur11, total_irq);
+	toString(cur12, total_softirq);
+	toString(cur13, total_steal);
+	toString(cur14, total_guest);
+	toString(cur15, total_guest_nice);
+	strcat(cpu_ans, "user:");
+	strcat(cpu_ans, cur6);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "nice:");
+	strcat(cpu_ans, cur7);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "system:");
+	strcat(cpu_ans, cur8);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "idle:");
+	strcat(cpu_ans, cur9);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "iowait:");
+	strcat(cpu_ans, cur10);
+	strcat(cpu_ans, "\n");
+	
+	strcat(cpu_ans, "irq:");
+	strcat(cpu_ans, cur11);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "softirq:");
+	strcat(cpu_ans, cur12);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "steal:");
+	strcat(cpu_ans, cur13);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "guest:");
+	strcat(cpu_ans, cur14);
+	strcat(cpu_ans, "\n");
+
+	strcat(cpu_ans, "guest_nice:");
+	strcat(cpu_ans, cur15);
+	strcat(cpu_ans, "\n");
+	
+	printk(KERN_INFO "END");
+	return 0;
+}
+
+int calc_mem(void){
+	printk(KERN_INFO "BEGIN");
+	struct sysinfo i;
+	calc_pages();
+	si_meminfo(&i);
+	memTotal = i.totalram;
+	memTotal = convertToKB(memTotal);
+	toString(cur, memTotal);
+	
+	memFree = i.freeram;
+	memFree = convertToKB(memFree);
+	toString(cur1, memFree);
+	
+	cached = global_node_page_state(NR_FILE_PAGES) - i.bufferram;
+	cached = convertToKB(cached);
+	if(isNegative(cached)){
+		cached = 0;
+	}
+	toString(cur2, cached);
+	buffers = i.bufferram; 
+	buffers = convertToKB(buffers);
+	toString(cur3, buffers);
+	
+	active = pages[LRU_ACTIVE_ANON] + pages[LRU_ACTIVE_FILE];
+	active = convertToKB(active);
+	toString(cur4, active);
+	
+	inactive = pages[LRU_INACTIVE_ANON] + pages[LRU_INACTIVE_FILE];
+	inactive = convertToKB(inactive);
+	toString(cur5, inactive);
+	
+	strcat(mem_ans, "MemTotal:");
+	strcat(mem_ans, cur);
+	strcat(mem_ans, "\n");
+	
+	strcat(mem_ans, "MemFree:");
+	strcat(mem_ans, cur1);
+	strcat(mem_ans, "\n");
+
+	strcat(mem_ans, "Cached:");
+	strcat(mem_ans, cur2);
+	strcat(mem_ans, "\n");
+
+
+	strcat(mem_ans, "Buffers:");
+	strcat(mem_ans, cur3);
+	strcat(mem_ans, "\n");
+
+	strcat(mem_ans, "Active:");
+	strcat(mem_ans, cur4);
+	strcat(mem_ans, "\n");
+
+	strcat(mem_ans, "Inactive:");
+	strcat(mem_ans, cur5);
+	strcat(mem_ans, "\n");
+
 	printk(KERN_INFO "END");
 	return 0;
 }
@@ -103,26 +281,9 @@ static ssize_t procfile_read(struct file *fp, char *buf, size_t len, loff_t *off
 		return 0;
 	}
 	finished = 1;
+	calc_mem();
 	calc_cpu();
-	
-	sprintf(buf, "cpu: %lld %lld %lld %lld %lld %lld %lld %lld %lld %lld\n", 
-				/*cpu0: %lld %lld %lld %lld %lld %lld %lld %lld %lld %lld\n 
-				cpu1: %lld %lld %lld %lld %lld %lld %lld %lld %lld %lld\n
-				cpu2: %lld %lld %lld %lld %lld %lld %lld %lld %lld %lld\n",*/ 
-				total_user, total_nice, total_system, total_idle, total_iowait, 
-				total_irq, total_softirq, total_steal, total_guest, total_guest_nice
-
-				/*cur_user[0], cur_nice[0], cur[0]_system, cur[0]_idle, cur[0]_iowait, 
-				cur_irq[0], cur_softirq[0], cur_steal[0], cur_guest[0], cur[0]_guest_nice,
-				
-				cur_user[1], cur_nice[1], cur[1]_system, cur[1]_idle, cur[1]_iowait, 
-				cur_irq[1], cur_softirq[1], cur_steal[1], cur_guest[1], cur[1]_guest_nice,
-				
-				cur_user[2], cur_nice[2], cur[2]_system, cur[2]_idle, cur[2]_iowait, 
-				cur_irq[2], cur_softirq[2], cur_steal[2], cur_guest[2], cur[2]_guest_nice*/
-				
-				);
-
+	sprintf(buf, "%s\n\n%s\n\n", cpu_ans, mem_ans);
 	return strlen(buf);
 }
 
@@ -141,3 +302,4 @@ static void finish_module(void){
 
 module_init(start_module);
 module_exit(finish_module);
+
