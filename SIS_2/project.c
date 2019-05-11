@@ -28,6 +28,7 @@
 
 #define PROCFS_MAX_SIZE	100
 #define PROCFS_NAME "helper"
+MODULE_LICENSE("GPL");
 
 struct proc_dir_entry *Our_Proc_File;
 char proc_buf[PROCFS_MAX_SIZE];
@@ -40,7 +41,7 @@ char cur2[100];
 char cur3[100];
 char cur4[100];
 char cur5[100];
-char mem_ans[1001], cpu_ans[1001];
+char mem_ans[1001], cpu_ans[1001], user_ans[1001], uptime_ans[101];
 
 char cur6[100];
 char cur7[100];
@@ -170,6 +171,7 @@ int calc_cpu(void){
 	toString(cur13, total_steal);
 	toString(cur14, total_guest);
 	toString(cur15, total_guest_nice);
+	cpu_ans[0] = '\0';
 	strcat(cpu_ans, "user:");
 	strcat(cpu_ans, cur6);
 	strcat(cpu_ans, "\n");
@@ -244,7 +246,7 @@ int calc_mem(void){
 	inactive = pages[LRU_INACTIVE_ANON] + pages[LRU_INACTIVE_FILE];
 	inactive = convertToKB(inactive);
 	toString(cur5, inactive);
-	
+	mem_ans[0] = '\0';
 	strcat(mem_ans, "MemTotal:");
 	strcat(mem_ans, cur);
 	strcat(mem_ans, "\n");
@@ -274,6 +276,101 @@ int calc_mem(void){
 	return 0;
 }
 
+struct file* file_open(const char* path, int flags, int rights) 
+{
+    struct file* filp = NULL;
+    mm_segment_t oldfs;
+    int err = 0;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+    filp = filp_open(path, flags, rights);
+    set_fs(oldfs);
+    if (IS_ERR(filp)) {
+        err = PTR_ERR(filp);
+        return NULL;
+    }
+    return filp;
+}
+
+int file_read(struct file *file) {
+    mm_segment_t oldfs;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+    int USERNAME_SIZE = 50;
+
+    file->f_pos=0;    
+
+    int i;
+
+    for (i=0;i<100; i++) {
+        char username[USERNAME_SIZE];
+        int a;
+        for (a=0;a <USERNAME_SIZE-1; a++) username[a] = '\0';
+        
+        char buff[1];
+        buff[0] = 10;
+
+        a = 0;
+        int ret = vfs_read(file,buff,1,&file->f_pos); 
+        
+        if (!ret) {
+            break;
+        }
+
+        while(buff[0] != ':') {
+            username[a++] = buff[0];
+            vfs_read(file,buff,1,&file->f_pos);
+        }
+
+        username[a] = '\0';
+        while(buff[0] != 10) { 
+            vfs_read(file,buff,1,&file->f_pos);
+        }
+
+        strcat(user_ans, username);
+        strcat(user_ans, "\n");
+    }
+
+    set_fs(oldfs);
+    return 0;
+}  
+
+void get_users(void) {
+	printk(KERN_INFO "BEGIN");
+
+    struct file* file = file_open("/etc/passwd", O_RDONLY, 0);
+    if (file != NULL) {
+    	user_ans[0] = '\0';
+    	strcat(user_ans, "Users:\n");
+    	file_read(file); 
+    }
+
+	printk(KERN_INFO "END");
+}
+
+
+void calc_uptime(void) {
+	struct timespec  uptime;
+	get_monotonic_boottime(&uptime);
+	unsigned long uptime_in_seconds = uptime.tv_sec;
+
+	int seconds = uptime_in_seconds % 60;
+	int minutes = uptime_in_seconds / 60 % 60;
+	int hours   = uptime_in_seconds / 3600 % 24;
+	int days    = uptime_in_seconds / 86400;
+
+	char daystring[32] = "";
+   	if (days > 1) {
+      sprintf(daystring, "%d days, ", days);
+   	} else if (days == 1) {
+      sprintf(daystring, "%d days, ", days);
+   	}
+
+ 	sprintf(uptime_ans, "Uptime:\n%s%02d:%02d:%02d", daystring, hours, minutes, seconds);
+}
+
 static ssize_t procfile_read(struct file *fp, char *buf, size_t len, loff_t *off){
 	static int finished = 0;
 	if(finished){
@@ -283,7 +380,10 @@ static ssize_t procfile_read(struct file *fp, char *buf, size_t len, loff_t *off
 	finished = 1;
 	calc_mem();
 	calc_cpu();
-	sprintf(buf, "%s\n\n%s\n\n", cpu_ans, mem_ans);
+	get_users();
+	calc_uptime();
+
+	sprintf(buf, "%s\n\n%s\n\n%s\n\n%s\n\n", cpu_ans, mem_ans, user_ans, uptime_ans);
 	return strlen(buf);
 }
 
@@ -302,4 +402,3 @@ static void finish_module(void){
 
 module_init(start_module);
 module_exit(finish_module);
-
